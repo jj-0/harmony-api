@@ -1,6 +1,7 @@
 var fs = require('fs')
 var path = require('path')
 var util = require('util')
+var dns = require('dns')
 var mqtt = require('mqtt');
 var express = require('express')
 var morgan = require('morgan')
@@ -80,9 +81,31 @@ discover.on('offline', function(hubInfo) {
   delete(harmonyHubStates[hubSlug])
 })
 
-// Look for hubs:
-console.log('Starting discovery.')
-discover.start()
+function connectToHub(ip) {
+  harmony(ip).then(function(client) {
+    startProcessing('harmony-hub', client);
+  }).catch(function(err) {
+    console.log('Failed to connect to hub at ' + ip + ': ' + err);
+  });
+}
+
+if (config.hub_hostname) {
+  console.log('Resolving hostname: ' + config.hub_hostname);
+  dns.lookup(config.hub_hostname, function(err, address) {
+    if (err) {
+      console.log('Failed to resolve hostname ' + config.hub_hostname + ': ' + err);
+    } else {
+      console.log('Connecting to hub at ' + address + ' (' + config.hub_hostname + ').');
+      connectToHub(address);
+    }
+  });
+} else if (config.hub_ip) {
+  console.log('Connecting to hub at ' + config.hub_ip + '.');
+  connectToHub(config.hub_ip);
+} else {
+  console.log('Starting discovery.');
+  discover.start();
+}
 
 // mqtt api
 
